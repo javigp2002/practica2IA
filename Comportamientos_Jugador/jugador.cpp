@@ -644,36 +644,33 @@ void actualizaNodoAbierto (priority_queue<nodoA_,vector<nodoA_>, ComparaDistanci
 	
 	
 }
-void actualizaNodosHijosCerrados(nodoA_ actual, nodoA_ &inicial, int diferencia, set<nodoA_, ComparaEstadosA_Nodos> &Cerrados, priority_queue<nodoA_,vector<nodoA_>, ComparaDistanciaA_Nodos> &Abiertos, set<nodoA_,ComparaEstadosA_Nodos> &SetAbiertos) {
+
+void actualizaNodosHijosCerrados(nodoA_ &actual, int diferencia, set<nodoA_, ComparaEstadosA_Nodos> &Cerrados, priority_queue<nodoA_,vector<nodoA_>, ComparaDistanciaA_Nodos> &Abiertos, set<nodoA_,ComparaEstadosA_Nodos> &SetAbiertos) {
 	int siz = actual.hijos.size();
+	
+	
+	
 	for(auto it=actual.hijos.begin(); it != actual.hijos.end(); it++){
-		nodoA_ n; n.st = *it;
-		auto cerrado = Cerrados.find(n);
+		nodoA_ hijoActual ;
+		hijoActual.st= *it;
+
+		auto cerrado = Cerrados.find(hijoActual);
 		if (cerrado != Cerrados.end()){
-			n.g = cerrado->g - diferencia; 
-			n.h=cerrado->h;
-			n.mejorPadre=inicial.st;
-			n.hijos = cerrado->hijos;
-			n.secuencia = cerrado->secuencia;
-
-			Cerrados.erase(*cerrado);
-			Cerrados.insert(n);
-			
-			inicial.hijos.push_back(n.st);
-
-			actualizaNodosHijosCerrados(n, inicial, diferencia, Cerrados, Abiertos, SetAbiertos);
+			hijoActual = *cerrado;
+			actualizaNodosHijosCerrados(hijoActual,diferencia,Cerrados,Abiertos, SetAbiertos);
+			Cerrados.erase(hijoActual);
+			hijoActual.g-=diferencia;
+			Cerrados.insert(hijoActual);
 		} else {
-			auto abierto= SetAbiertos.find(n);
-			n.g = abierto->g - diferencia; 
-			n.h=abierto->h;
-			n.mejorPadre=inicial.st;
-			n.hijos = abierto->hijos;
-			n.secuencia = abierto->secuencia;
-			
-			actualizaNodoAbierto(Abiertos,SetAbiertos, *it);
-			
-			Abiertos.push(n);
-			SetAbiertos.insert(n);
+			auto abierto = SetAbiertos.find(hijoActual);
+			if (abierto != SetAbiertos.end()){
+				hijoActual = *abierto;
+				actualizaNodoAbierto(Abiertos,SetAbiertos,hijoActual.st);
+				hijoActual.g -= diferencia;
+				SetAbiertos.insert(hijoActual);
+				Abiertos.push(hijoActual);
+
+			}
 		}
 	}
 
@@ -714,9 +711,7 @@ void insertaNodo(nodoA_ &hijo, nodoA_ &current, const estado &destino,  vector< 
 		}else if (existeCerrado != Cerrados.end()){
 			if (existeCerrado->g+existeCerrado->h > hijo.g+hijo.h){
 				int diferencia = existeCerrado->g - hijo.g;
-				//actualizaNodosHijosCerrados(*existeCerrado, hijo, diferencia, Cerrados, Abiertos, SetAbiertos);
-				Cerrados.erase(*existeCerrado);
-				Cerrados.insert(hijo);
+				actualizaNodosHijosCerrados(hijo, diferencia, Cerrados, Abiertos, SetAbiertos);
 			}
 			
 		} else{
