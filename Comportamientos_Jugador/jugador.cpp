@@ -77,12 +77,12 @@ bool ComportamientoJugador::pathFinding(int level, const estado &origen, const l
 		cout << "Optimo en coste\n";
 		un_objetivo = objetivos.front();
 		cout << "fila: " << un_objetivo.fila << " col:" << un_objetivo.columna << endl;
-		return pathFinding_CostoUniforme(origen,un_objetivo,plan,mapaResultado);
+		return pathFinding_AlgoritmoA(origen,un_objetivo,plan,mapaResultado);
 		break;
 	case 3:
 		cout << "Reto 1: Descubrir el mapa\n";
-		// Incluir aqui la llamada al algoritmo de busqueda para el Reto 1
-		cout << "No implementado aun\n";
+
+		return pathFinding_AlgoritmoA(origen,un_objetivo,plan,mapaResultado);
 		break;
 	case 4:
 		cout << "Reto 2: Maximizar objetivos\n";
@@ -193,18 +193,33 @@ struct nodoA_
 	list <estado> hijos;
 
 };
+int valorBool(bool zapatillas, bool bikini){
+	int ret;
+
+	if (!zapatillas && !bikini)
+		ret=0;
+	else if (!zapatillas && bikini)
+		ret=1;
+	else if (zapatillas && !bikini)
+		ret=2;
+	else
+		ret=3;
+
+	return ret;
+}
 
 struct ComparaEstadosA_Nodos
 {
     bool operator()(const nodoA_ &b, const nodoA_ &c) const
     {
     
+		int aBool = valorBool(b.st.zapatillas, b.st.bikini), nBool = valorBool(c.st.zapatillas, c.st.bikini);
+		
         estado a = b.st;
         estado n = c.st;
         if ((a.fila > n.fila) or (a.fila == n.fila and a.columna > n.columna) or
             (a.fila == n.fila and a.columna == n.columna and a.orientacion > n.orientacion) or
-			(a.fila == n.fila and a.columna == n.columna and a.orientacion == n.orientacion and a.bikini == n.bikini and a.zapatillas > n.zapatillas ) or
-			(a.fila == n.fila and a.columna == n.columna and a.orientacion == n.orientacion and a.zapatillas == n.zapatillas and a.bikini > n.bikini ))
+			(a.fila == n.fila and a.columna == n.columna and a.orientacion == n.orientacion and aBool > nBool))
             return true;
         else
             return false;
@@ -435,70 +450,88 @@ void ComportamientoJugador::VisualizaPlan(const estado &st, const list<Action> &
 	}
 }
 
+void insertaNodoAnchura(nodo &nod, Action accion, set<estado, ComparaEstados> & Cerrados,queue<nodo> &Abiertos, set<estado,ComparaEstados> &SetAbiertos){
+	if (Cerrados.find(nod.st) == Cerrados.end() &&SetAbiertos.find(nod.st) == SetAbiertos.end() )
+		{
+			nod.secuencia.push_back(accion);
+			Abiertos.push(nod);
+			SetAbiertos.insert(nod.st);
+		}
+}
 bool ComportamientoJugador::pathFinding_Anchura(const estado &origen, const estado &destino, list<Action> &plan)
 {
 	// Borro la lista
 	cout << "Calculando plan\n";
 	plan.clear();
 	set<estado, ComparaEstados> Cerrados; // Lista de Cerrados
-	queue<nodo> Abiertos;				  // Lista de Abiertos
+	queue<nodo> Abiertos;	
+	set<estado,ComparaEstados> SetAbiertos;			  // Lista de Abiertos
 
 	nodo current;
 	current.st = origen;
 	current.secuencia.empty();
 
 	Abiertos.push(current);
+	SetAbiertos.insert(current.st);
 	while (!Abiertos.empty() and (current.st.fila != destino.fila or current.st.columna != destino.columna))
 	{
-		
+		SetAbiertos.erase(Abiertos.front().st);
 		Abiertos.pop();
 		Cerrados.insert(current.st);
 
 		// Generar descendiente de girar a la derecha 90 grados
 		nodo hijoTurnR = current;
 		hijoTurnR.st.orientacion = (hijoTurnR.st.orientacion + 2) % 8;
-		if (Cerrados.find(hijoTurnR.st) == Cerrados.end())
-		{
-			hijoTurnR.secuencia.push_back(actTURN_R);
-			Abiertos.push(hijoTurnR);
-		}
+		// if (Cerrados.find(hijoTurnR.st) == Cerrados.end() )
+		// {
+		// 	hijoTurnR.secuencia.push_back(actTURN_R);
+		// 	Abiertos.push(hijoTurnR);
+		// }
+		insertaNodoAnchura(hijoTurnR,actTURN_R,Cerrados, Abiertos, SetAbiertos);
 
 		// Generar descendiente de girar a la derecha 45 grados
 		nodo hijoSEMITurnR = current;
 		hijoSEMITurnR.st.orientacion = (hijoSEMITurnR.st.orientacion + 1) % 8;
-		if (Cerrados.find(hijoSEMITurnR.st) == Cerrados.end())
-		{
-			hijoSEMITurnR.secuencia.push_back(actSEMITURN_R);
-			Abiertos.push(hijoSEMITurnR);
-		}
+		insertaNodoAnchura(hijoSEMITurnR,actSEMITURN_R,Cerrados, Abiertos, SetAbiertos);
+		// if (Cerrados.find(hijoSEMITurnR.st) == Cerrados.end())
+		// {
+		// 	hijoSEMITurnR.secuencia.push_back(actSEMITURN_R);
+		// 	Abiertos.push(hijoSEMITurnR);
+		// }
 
 		// Generar descendiente de girar a la izquierda 90 grados
 		nodo hijoTurnL = current;
 		hijoTurnL.st.orientacion = (hijoTurnL.st.orientacion + 6) % 8;
-		if (Cerrados.find(hijoTurnL.st) == Cerrados.end())
-		{
-			hijoTurnL.secuencia.push_back(actTURN_L);
-			Abiertos.push(hijoTurnL);
-		}
+		insertaNodoAnchura(hijoTurnL,actTURN_L,Cerrados, Abiertos, SetAbiertos);
+
+		// if (Cerrados.find(hijoTurnL.st) == Cerrados.end())
+		// {
+		// 	hijoTurnL.secuencia.push_back(actTURN_L);
+		// 	Abiertos.push(hijoTurnL);
+		// }
 
 		// Generar descendiente de girar a la izquierda 45 grados
 		nodo hijoSEMITurnL = current;
 		hijoSEMITurnL.st.orientacion = (hijoSEMITurnL.st.orientacion + 7) % 8;
-		if (Cerrados.find(hijoSEMITurnL.st) == Cerrados.end())
-		{
-			hijoSEMITurnL.secuencia.push_back(actSEMITURN_L);
-			Abiertos.push(hijoSEMITurnL);
-		}
+				insertaNodoAnchura(hijoSEMITurnL,actSEMITURN_L,Cerrados, Abiertos, SetAbiertos);
+
+		// if (Cerrados.find(hijoSEMITurnL.st) == Cerrados.end())
+		// {
+		// 	hijoSEMITurnL.secuencia.push_back(actSEMITURN_L);
+		// 	Abiertos.push(hijoSEMITurnL);
+		// }
 
 		// Generar descendiente de avanzar
 		nodo hijoForward = current;
 		if (!HayObstaculoDelante(hijoForward.st))
 		{
-			if (Cerrados.find(hijoForward.st) == Cerrados.end())
-			{
-				hijoForward.secuencia.push_back(actFORWARD);
-				Abiertos.push(hijoForward);
-			}
+			insertaNodoAnchura(hijoForward,actFORWARD,Cerrados, Abiertos, SetAbiertos);
+
+			// if (Cerrados.find(hijoForward.st) == Cerrados.end())
+			// {
+			// 	hijoForward.secuencia.push_back(actFORWARD);
+			// 	Abiertos.push(hijoForward);
+			// }
 		}
 
 		// Tomo el siguiente valor de la Abiertos
@@ -613,16 +646,15 @@ void actualizaPathCost(nodoA_ & nodo, vector< vector< unsigned char> > mapaR, Ac
 		
 
 	}
+
+	if (mapaR[fil][col] == '?')
+		valor = 1e6;
+
 	nodo.g = valor + gPadre;
 	double x = nodo.st.fila - destino.fila;
 	double y = nodo.st.columna - destino.columna;
 
-	nodo.h = (int)sqrt(pow(x,2)+pow(y,2));
-
-	
-
-	
-
+	nodo.h = (int)max(abs(x), abs(y));
 }
 
 void actualizaNodoAbierto (priority_queue<nodoA_,vector<nodoA_>, ComparaDistanciaA_Nodos> &Abiertos, set<nodoA_,ComparaEstadosA_Nodos> &SetAbiertos, estado status){
@@ -648,8 +680,6 @@ void actualizaNodoAbierto (priority_queue<nodoA_,vector<nodoA_>, ComparaDistanci
 void actualizaNodosHijosCerrados(nodoA_ &actual, int diferencia, set<nodoA_, ComparaEstadosA_Nodos> &Cerrados, priority_queue<nodoA_,vector<nodoA_>, ComparaDistanciaA_Nodos> &Abiertos, set<nodoA_,ComparaEstadosA_Nodos> &SetAbiertos) {
 	int siz = actual.hijos.size();
 	
-	
-	
 	for(auto it=actual.hijos.begin(); it != actual.hijos.end(); it++){
 		nodoA_ hijoActual ;
 		hijoActual.st= *it;
@@ -658,6 +688,7 @@ void actualizaNodosHijosCerrados(nodoA_ &actual, int diferencia, set<nodoA_, Com
 		if (cerrado != Cerrados.end()){
 			hijoActual = *cerrado;
 			actualizaNodosHijosCerrados(hijoActual,diferencia,Cerrados,Abiertos, SetAbiertos);
+			
 			Cerrados.erase(hijoActual);
 			hijoActual.g-=diferencia;
 			Cerrados.insert(hijoActual);
@@ -667,6 +698,7 @@ void actualizaNodosHijosCerrados(nodoA_ &actual, int diferencia, set<nodoA_, Com
 				hijoActual = *abierto;
 				actualizaNodoAbierto(Abiertos,SetAbiertos,hijoActual.st);
 				hijoActual.g -= diferencia;
+				
 				SetAbiertos.insert(hijoActual);
 				Abiertos.push(hijoActual);
 
@@ -730,7 +762,7 @@ void sacaNodo(nodoA_ n){
 
 
 
-bool ComportamientoJugador::pathFinding_CostoUniforme(const estado &origen, const estado &destino, list<Action> &plan, std::vector< std::vector< unsigned char> > mapaR){
+bool ComportamientoJugador::pathFinding_AlgoritmoA(const estado &origen, const estado &destino, list<Action> &plan, std::vector< std::vector< unsigned char> > mapaR){
 	cout << "Calculando plan\n";
 	bool salida = false;
 	plan.clear();
@@ -748,12 +780,9 @@ bool ComportamientoJugador::pathFinding_CostoUniforme(const estado &origen, cons
 	Abiertos.push(current);
 	SetAbiertos.insert(current);
 	while (!Abiertos.empty()){
-		
 		SetAbiertos.erase(Abiertos.top());
 		Abiertos.pop();
 
-
-		cout << current.st.fila << " " << current.st.columna << " - " << current.st.orientacion << endl;
 
 		if (current.st.fila == destino.fila and current.st.columna == destino.columna)
 		{
