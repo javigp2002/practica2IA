@@ -24,7 +24,7 @@ do
                 done=1
                 ;;
             dnf)
-                sudo dnf install freeglut-devel libjpeg-turbo-devel openmpi-devel libXmu-devel libXi-devel cmake boost-devel
+                sudo dnf install -y freeglut-devel libjpeg-turbo-devel openmpi-devel libXmu-devel libXi-devel cmake boost-devel
                 sed -i '62s/.*/set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -std=c++11 -lglut")/' CMakeLists.txt
                 done=1
                 ;;
