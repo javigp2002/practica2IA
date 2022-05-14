@@ -38,7 +38,38 @@ Action ComportamientoJugador::think(Sensores sensores)
 
 	if (sensores.nivel >= 3){
 		actualizarVistaMapa( sensores, actual, mapaResultado);
+
 		mapaRecorrido[actual.fila][actual.columna]=1;
+
+		if (sensores.bateria < VAL_MIN_BATERIA && !buscaBateria){
+
+			for (int i=0; i < mapaResultado.size() && !buscaBateria; i++){
+				for (size_t j = 0; j < mapaResultado[0].size() && !buscaBateria; j++)
+				{
+					if (mapaResultado[i][j] == 'X'){
+						estado s;
+						s.fila=i;
+						s.columna=j;
+						hayPlan = pathFinding_AlgoritmoA(actual, s, plan, mapaResultado);
+						if (hayPlan ){
+							buscaBateria=true;
+
+						}
+					}
+				}
+				
+			}
+		}
+
+		if (buscaBateria){
+			
+			if (sensores.bateria < 2*sensores.vida && sensores.bateria < VAL_MAX_BATERIA && mapaResultado[actual.fila][actual.columna] == 'X'){
+				return actIDLE;
+			} else if (mapaResultado[actual.fila][actual.columna] == 'X'){
+				buscaBateria=false;
+				hayPlan=false;
+			}
+		}
 	
 	}
 	// si no hay plan, construye uno
@@ -50,9 +81,17 @@ Action ComportamientoJugador::think(Sensores sensores)
 	if (hayPlan && plan.size() > 0){ // hay un plan no vacio
 		accion = plan.front();	 // tomo la sig accion del plan
 		if (accion == actFORWARD && !pasoPosible(actual,sensores,2)){
-			buscaSalida=true;
-			hayPlan = pathFinding(sensores.nivel, actual, objetivos, plan, sensores, accion);
+			if (buscaBateria){
+				if (HayObstaculoDelante(actual)){
+					buscaBateria=false;
+					hayPlan = pathFinding(sensores.nivel, actual, objetivos, plan, sensores, accion);
+				}
+			} else{
+				buscaSalida=true;
+				hayPlan = pathFinding(sensores.nivel, actual, objetivos, plan, sensores, accion);
+			}
 			accion = plan.front();
+			
 		}
 		plan.erase(plan.begin());	 // eliminamos la acción del plan
 	} 
@@ -718,7 +757,6 @@ void actualizaNodosHijosCerrados(nodoA_ &actual, int diferencia, set<nodoA_, Com
 void insertaNodo(nodoA_ &hijo, nodoA_ &current, const estado &destino,  vector< vector< unsigned char> >& mapaR, set<nodoA_, ComparaEstadosA_Nodos> &Cerrados, // Lista de Cerrados
 	priority_queue<nodoA_,vector<nodoA_>, ComparaDistanciaA_Nodos> &Abiertos, set<nodoA_,ComparaEstadosA_Nodos> &SetAbiertos, Action accion){
 		
-//	hijo.mejorPadre = current.st;
 
 	hijo.secuencia.push_back(accion);
 
@@ -735,15 +773,13 @@ void insertaNodo(nodoA_ &hijo, nodoA_ &current, const estado &destino,  vector< 
 	// actualiza h y g
 	actualizaPathCost(hijo,mapaR,accion, destino,current.g);
 	
-	//Abiertos.push(hijo);
+
 	set<nodoA_,ComparaEstadosA_Nodos>::iterator existeAbierto = SetAbiertos.find(hijo);
 	set<nodoA_,ComparaEstadosA_Nodos>::iterator existeCerrado = Cerrados.find(hijo);	
 
 	
 	if (existeAbierto != SetAbiertos.end()){
-		if (existeAbierto->g+existeAbierto->h > hijo.g+hijo.h){
-			//actualizaNodoAbierto(Abiertos,SetAbiertos,hijo.st);
-			
+		if (existeAbierto->g+existeAbierto->h > hijo.g+hijo.h){			
 			SetAbiertos.erase(*existeAbierto);
 			Abiertos.push(hijo);
 			
@@ -755,13 +791,10 @@ void insertaNodo(nodoA_ &hijo, nodoA_ &current, const estado &destino,  vector< 
 		Abiertos.push(hijo);
 	}
 
-	//current.hijos.push_back(hijo.st);
 }
 
 void sacaNodo(nodoA_ n){
 	cout << n.g << " " << n.h << "|" << n.st.fila << " "<< n.st.columna << " "<< n.st.orientacion << endl;
-
-
 }
 
 
@@ -777,8 +810,6 @@ bool ComportamientoJugador::pathFinding_AlgoritmoA(const estado &origen, const e
 	nodoA_ current;
 	current.st = origen;
 	current.secuencia.empty();
-	int zz=0;
-
 
 
 	Abiertos.push(current);
@@ -868,15 +899,17 @@ int new_fil = actual.fila, new_col = actual.columna;
 
 
 			for (int j = 0; j < 3+2*i; j++) {
-				if (actual.orientacion==0 || actual.orientacion == 4) // norte,sur -->columnas
+				if (actual.orientacion==0 || actual.orientacion == 4){ // norte,sur -->columnas
 					mapa[new_fil][new_col+j] = sensores.terreno[contador];
-				else // este oeste --> filas
+				}else{ // este oeste --> filas
 					mapa[new_fil+j][new_col] = sensores.terreno[contador];
-				
+				}
 				if (actual.orientacion == 0 || actual.orientacion == 2) //norte este
 					contador++;
 				else  // sur oeste
 					contador--;	
+				
+	
 			}
 		}
 	} else {
@@ -936,7 +969,7 @@ void ComportamientoJugador::resetMapaRecorrido(){
 	} 
 }
 
-
+/*
 pair<int,int> ComportamientoJugador::inicializaMapaPotencial(estado est){
 	char c;
  	int maximo = 0 ;
@@ -1007,7 +1040,7 @@ void ComportamientoJugador::actualizaMapaPotencial(int fil_obj, int col_obj, int
 		}		
 	}
 }
-
+*/
 
 
 pair<int,int> ComportamientoJugador::inicializaMapaPotencialMinimo(estado est){

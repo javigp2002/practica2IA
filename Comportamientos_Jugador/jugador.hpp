@@ -49,6 +49,10 @@ class ComportamientoJugador : public Comportamiento {
     bool buscaSalida=false,  sigueMuro = false;
 
     std::vector< std::vector<int> > mapaPotencial, mapaRecorrido; 
+    vector<pair<int,int>> vectorBaterias;
+    bool buscaBateria=false;
+    const int VAL_MAX_BATERIA = 5000;
+    const int VAL_MIN_BATERIA = 1500;
 
 
     // Métodos privados de la clase
@@ -58,8 +62,6 @@ class ComportamientoJugador : public Comportamiento {
     bool pathFinding_AlgoritmoA(const estado &origen, const estado &destino, list<Action> &plan, std::vector< std::vector< unsigned char> > &mapaR);
     bool pathFinding_DescubreMapa(const estado &origen, const estado &destino, list<Action> &plan, std::vector< std::vector< unsigned char> > &mapaR, Sensores sensores, Action &accion);
 
-    void actualizaMapaPotencial(int fil_obj, int col_obj,  int &maximo,  pair<int,int> &objetivo, estado est);
-    pair<int,int> inicializaMapaPotencial(estado est);
     void actualizaMapaPotencialMinimo(int fil_obj, int col_obj,  int &minimo,  pair<int,int> &objetivo, estado est);
     pair<int,int> inicializaMapaPotencialMinimo(estado est);
     void resetMapaPotencial();
