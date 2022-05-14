@@ -16,10 +16,15 @@ struct estado {
 class ComportamientoJugador : public Comportamiento {
   public:
     ComportamientoJugador(unsigned int size) : Comportamiento(size) {
-      // Inicializar Variables de Estado
+      resetMapaPotencial();
+      pintaPrecipicios();
+      resetMapaRecorrido();
     }
     ComportamientoJugador(std::vector< std::vector< unsigned char> > mapaR) : Comportamiento(mapaR) {
-      // Inicializar Variables de Estado
+      resetMapaPotencial();
+      resetMapaRecorrido();
+      pintaPrecipicios();
+
     }
     ComportamientoJugador(const ComportamientoJugador & comport) : Comportamiento(comport){}
     ~ComportamientoJugador(){}
@@ -29,23 +34,46 @@ class ComportamientoJugador : public Comportamiento {
     void VisualizaPlan(const estado &st, const list<Action> &plan);
     ComportamientoJugador * clone(){return new ComportamientoJugador(*this);}
 
+
+
   private:
     // Declarar Variables de Estado
     estado actual;
     list<estado> objetivos;
-    list<Action> plan;
+    list<Action> plan, planVacio;
     bool hayPlan = false;
+    const int FIL_POTENCIAL = mapaResultado.size();
+    const int COL_POTENCIAL = mapaResultado[0].size(), VAL_MAX_SALIDA = 1e5;
+    const int MAX_MAPA = mapaResultado.size();
+    int num_iteracion=0;
+    bool buscaSalida=false,  sigueMuro = false;
+
+    std::vector< std::vector<int> > mapaPotencial, mapaRecorrido; 
+
 
     // Métodos privados de la clase
-    bool pathFinding(int level, const estado &origen, const list<estado> &destino, list<Action> &plan);
+    bool pathFinding(int level, const estado &origen, const list<estado> &destino, list<Action> &plan, Sensores sensores, Action &accion);
     bool pathFinding_Profundidad(const estado &origen, const estado &destino, list<Action> &plan);
     bool pathFinding_Anchura(const estado &origen, const estado &destino, list<Action> &plan);
-    bool pathFinding_AlgoritmoA(const estado &origen, const estado &destino, list<Action> &plan, std::vector< std::vector< unsigned char> > mapaR);
+    bool pathFinding_AlgoritmoA(const estado &origen, const estado &destino, list<Action> &plan, std::vector< std::vector< unsigned char> > &mapaR);
+    bool pathFinding_DescubreMapa(const estado &origen, const estado &destino, list<Action> &plan, std::vector< std::vector< unsigned char> > &mapaR, Sensores sensores, Action &accion);
 
+    void actualizaMapaPotencial(int fil_obj, int col_obj,  int &maximo,  pair<int,int> &objetivo, estado est);
+    pair<int,int> inicializaMapaPotencial(estado est);
+    void actualizaMapaPotencialMinimo(int fil_obj, int col_obj,  int &minimo,  pair<int,int> &objetivo, estado est);
+    pair<int,int> inicializaMapaPotencialMinimo(estado est);
+    void resetMapaPotencial();
+    void resetMapaRecorrido();
 
     void PintaPlan(list<Action> plan);
+    void pintaPrecipicios();
     bool HayObstaculoDelante(estado &st);
+    void actualizarVistaMapa(Sensores sensores,  const estado &actual,  vector< vector< unsigned char> > & mapa);
+    Action accionPorDefecto(const estado &origen,  std::vector< std::vector< unsigned char> > mapaR, Sensores sensores);
+    bool pasoPosible (const estado &origen, Sensores sensores, int sen);
+    
 
+    pair<int,int> rayos(const estado &origen);
 };
 
 #endif
