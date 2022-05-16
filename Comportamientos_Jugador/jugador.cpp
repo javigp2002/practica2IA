@@ -11,14 +11,68 @@
 // Este es el método principal que se piden en la practica.
 // Tiene como entrada la información de los sensores y devuelve la acción a realizar.
 // Para ver los distintos sensores mirar fichero "comportamiento.hpp"
+
+
+
+
+
+void actualizaSegunOrientacion(int &fil, int &col, int &orient);
+
 Action ComportamientoJugador::think(Sensores sensores)
 {
 	Action accion = actIDLE;
+	
+	// nivel 4
+	if (sensores.nivel == 4 && (sensores.colision || inicio)){
+		inicio=false;
+		
+		ultimaAccion = actWHEREIS;
+		return ultimaAccion;
+	}
 
-	// actualizar variable actual
-	actual.fila = sensores.posF;
-	actual.columna = sensores.posC;
-	actual.orientacion = sensores.sentido;
+	if (sensores.nivel < 4 ){
+		// actualizar variable actual
+		actual.fila = sensores.posF;
+		actual.columna = sensores.posC;
+		actual.orientacion = sensores.sentido;
+	} else {
+		if (sensores.posF != -1){
+			fil = sensores.posF;
+			col = sensores.posC;
+			orient = sensores.sentido;
+		} else {
+			switchAccion();
+		}
+		
+		actual.fila = fil;
+		actual.columna = col;
+		actual.orientacion = orient;
+
+		// if (sensores.superficie[2] == 'l' || sensores.superficie[2] == 'a'){
+		// 	ultimaAccion=actIDLE;
+		// 	return ultimaAccion;
+		// }
+		for (auto it = objetivos.begin(); it != objetivos.end(); it++)
+		{
+
+			if (actual.fila == it->fila && actual.columna == it->columna){
+				bool encontrada=false;
+				for (auto ot = listBateriasEncontradas.begin(); ot != listBateriasEncontradas.end() && !encontrada; ot++)
+				{
+					if (it->fila == ot->fila && it->columna == ot->columna)
+						encontrada=true;
+				}
+				
+				if (!encontrada)
+					listBateriasEncontradas.push_back(*it);
+				cout << listBateriasEncontradas.size() << endl;
+				if (listBateriasEncontradas.size()>2){
+					listBateriasEncontradas.clear();
+				}
+				hayPlan = false;
+			}
+		}
+	}
 
 	// cout << "Fila: " << actual.fila << endl;
 	// cout << "Col : " << actual.columna << endl;
@@ -36,42 +90,86 @@ Action ComportamientoJugador::think(Sensores sensores)
 		objetivos.push_back(aux);
 	}
 
+	char c = mapaResultado[actual.fila][actual.columna];
+
+	if (c == 'K'){
+		actual.bikini=true;
+		actual.zapatillas=false;
+	} else if (c == 'D'){
+		actual.bikini=false;
+		actual.zapatillas=true;
+	}
+	
+	/////////////////////////////////////////////////////////////////////////////
 	if (sensores.nivel >= 3){
+		
 		actualizarVistaMapa( sensores, actual, mapaResultado);
+		if(sensores.nivel == 4){
+			actualizarVistaMapa(sensores, actual, mapaAux);
+		}
+		
 
-		mapaRecorrido[actual.fila][actual.columna]=1;
+		if (estoyAccionBasica){
+			if (num_iteracion >= 120){
+				estoyAccionBasica=false;
+				num_iteracion=0;
+			} else
+				num_iteracion++;
 
-		if (sensores.bateria < VAL_MIN_BATERIA && !buscaBateria){
+			ultimaAccion = accionBasica(actual,mapaResultado,sensores);
+			return ultimaAccion;
 
+		}
+
+
+		if (sensores.vida > 450 && sensores.bateria < VAL_MIN_BATERIA && sensores.bateria < 2*sensores.vida && sensores.bateria < VAL_MAX_BATERIA&& !buscaBateria){
 			for (int i=0; i < mapaResultado.size() && !buscaBateria; i++){
 				for (size_t j = 0; j < mapaResultado[0].size() && !buscaBateria; j++)
 				{
 					if (mapaResultado[i][j] == 'X'){
-						estado s;
-						s.fila=i;
-						s.columna=j;
-						hayPlan = pathFinding_AlgoritmoA(actual, s, plan, mapaResultado);
-						if (hayPlan ){
-							buscaBateria=true;
+						bateria.fila=i;
+						bateria.columna=j;
 
-						}
+						listBaterias.push_back(bateria);
+						
 					}
 				}
 				
 			}
+
+			if (!listBaterias.empty()){
+				int diferenciaMinima = 2e6;
+				for (auto it= listBaterias.begin(); it!=listBaterias.end(); it++){
+					int difActual= max(abs(actual.fila - it->fila), abs(actual.columna - it->columna));
+
+					if (difActual<diferenciaMinima){
+						bateria = *it;
+					}
+				}
+
+				
+				hayPlan = pathFinding_AlgoritmoA(actual, bateria, plan, mapaResultado);
+				if (hayPlan ){
+					buscaBateria=true;
+				}
+			}
 		}
+
+
 
 		if (buscaBateria){
 			
 			if (sensores.bateria < 2*sensores.vida && sensores.bateria < VAL_MAX_BATERIA && mapaResultado[actual.fila][actual.columna] == 'X'){
-				return actIDLE;
+				ultimaAccion =  actIDLE;
+				return ultimaAccion;
 			} else if (mapaResultado[actual.fila][actual.columna] == 'X'){
 				buscaBateria=false;
 				hayPlan=false;
 			}
 		}
-	
 	}
+
+
 	// si no hay plan, construye uno
 	if (!hayPlan){
 		hayPlan = pathFinding(sensores.nivel, actual, objetivos, plan, sensores, accion);
@@ -80,26 +178,51 @@ Action ComportamientoJugador::think(Sensores sensores)
 
 	if (hayPlan && plan.size() > 0){ // hay un plan no vacio
 		accion = plan.front();	 // tomo la sig accion del plan
-		if (accion == actFORWARD && !pasoPosible(actual,sensores,2)){
+		if (accion == actFORWARD && (!pasoPosible(actual,sensores,2) ||  sensores.superficie[2] != '_')){
 			if (buscaBateria){
-				if (HayObstaculoDelante(actual)){
-					buscaBateria=false;
-					hayPlan = pathFinding(sensores.nivel, actual, objetivos, plan, sensores, accion);
-				}
-			} else{
+				list<estado> l;
+				l.push_back(bateria);
+				if (sensores.superficie[2] != '_'){
+					int f=fil, c=col; 
+					actualizaSegunOrientacion(f,c,orient);
+					unsigned char ant = mapaAux[f][c];
+					mapaAux[f][c]='M';
+					hayPlan = pathFinding_AlgoritmoA(actual, bateria, plan,mapaAux);
+					mapaAux[f][c] = ant;
+				}else
+					hayPlan = pathFinding_AlgoritmoA(actual, bateria, plan, mapaResultado);
+			
+			} else {
 				buscaSalida=true;
+
 				hayPlan = pathFinding(sensores.nivel, actual, objetivos, plan, sensores, accion);
 			}
-			accion = plan.front();
-			
+			if (hayPlan)
+				accion = plan.front();
+			else{
+				estoyAccionBasica = true;
+				ultimaAccion =  accionBasica(actual,mapaResultado,sensores);
+				return ultimaAccion;
+			}
 		}
-		plan.erase(plan.begin());	 // eliminamos la acción del plan
+
+
+		if (hayPlan){
+			plan.erase(plan.begin());	 // eliminamos la acción del plan
+			ultimaAccion = accion;
+		}
 	} 
 
 	if(plan.size() <= 0) {
 		hayPlan=false;
+		if (accion == actIDLE && sensores.nivel <=3){
+			estoyAccionBasica = true;
+			ultimaAccion =  accionBasica(actual,mapaResultado,sensores);
+			return ultimaAccion;
+		}
 	}
-	
+
+	ultimaAccion = accion;
 	return accion;
 }
 
@@ -136,8 +259,7 @@ bool ComportamientoJugador::pathFinding(int level, const estado &origen, const l
 		break;
 	case 4:
 		cout << "Reto 2: Maximizar objetivos\n";
-		// Incluir aqui la llamada al algoritmo de busqueda para el Reto 2
-		cout << "No implementado aun\n";
+		return pathFinding_BuscaObjetivos(origen, objetivos, plan, mapaResultado, sensores);		
 		break;
 	}
 	return false;
@@ -418,7 +540,7 @@ void ComportamientoJugador::PintaPlan(list<Action> plan)
 		}
 		else if (*it == actSEMITURN_L)
 		{
-			cout << "i ";
+			cout << "I ";
 		}
 		else
 		{
@@ -689,7 +811,7 @@ void actualizaPathCost(nodoA_ & nodo, vector< vector< unsigned char> > &mapaR, A
 	if (mapaR[fil][col] == '?')
 		valor = 1;
 
-	if (mapaR[fil][col] == 'P' || mapaR[fil][col] == 'M')
+	if (mapaR[fil][col] == 'P' || mapaR[fil][col] == 'M' )
 		valor = 3e7;
 
 	nodo.g = valor + gPadre;
@@ -865,10 +987,10 @@ bool ComportamientoJugador::pathFinding_AlgoritmoA(const estado &origen, const e
 		{
 			Cerrados.insert(current);
 
-			if (SetAbiertos.find(Abiertos.top()) == SetAbiertos.end())
+			if (SetAbiertos.find(Abiertos.top()) == SetAbiertos.end() && !Abiertos.empty())
 				Abiertos.pop();
-
-			current = Abiertos.top();
+			if (!Abiertos.empty())
+				current = Abiertos.top();
 		}
 	}
 	
@@ -1129,7 +1251,7 @@ void ComportamientoJugador::actualizaMapaPotencialMinimo(int fil_obj, int col_ob
 bool ComportamientoJugador::pasoPosible (const estado &origen, Sensores sensores, int sen){
 	bool puedo_pasar = sensores.terreno[sen] != 'M' && sensores.terreno[sen] != 'P' ; 
 	if (origen.zapatillas)
-		return puedo_pasar &&sensores.terreno[sen] != 'A' ;
+		return puedo_pasar && sensores.terreno[sen] != 'A' ;
 	else if (origen.bikini)
 		return puedo_pasar && sensores.terreno[sen] != 'B';
 	else
@@ -1185,6 +1307,27 @@ Action ComportamientoJugador::accionPorDefecto(const estado &origen,  std::vecto
 
 	return accion;
 }
+
+
+Action ComportamientoJugador::accionBasica(const estado &origen,  std::vector< std::vector< unsigned char> > mapaR, Sensores sensores){
+	Action accion;
+	
+	estado es = origen;
+	if (!HayObstaculoDelante(es)){
+		accion = actFORWARD;
+	} else if (pasoPosible(origen,sensores,3)) {
+		sigueMuro = true;
+		accion = actSEMITURN_R;
+
+	} else {
+		accion = actTURN_R;
+
+	} 
+
+	return accion;
+}
+
+
 bool ComportamientoJugador::pathFinding_DescubreMapa(const estado &origen, const estado &destino, list<Action> &plan, 
  		std::vector< std::vector< unsigned char> >& mapaR, Sensores sensores,  Action &accion){
 
@@ -1206,12 +1349,13 @@ bool ComportamientoJugador::pathFinding_DescubreMapa(const estado &origen, const
 		pair<int,int> objetivo = rayos(origen);
 		destino1.fila= objetivo.first;
 		destino1.columna = objetivo.second;
-		pathFinding_AlgoritmoA(origen, destino1, plan, mapaR);
-		
 		
 		buscaSalida=false;
+
+		return pathFinding_AlgoritmoA(origen, destino1, plan, mapaR);
+		
+		
  		
-		return true;
 	} else if (sigueMuro) {
 		if ( pasoPosible(origen,sensores,1)){
 			sigueMuro = false;
@@ -1349,7 +1493,121 @@ pair<int,int> ComportamientoJugador::rayos(const estado &origen){
 		return objetivoSuroeste;
 	
 }
+
+bool estaEnLista(list<estado> lista, estado es){
+	bool esta=false;
+	for (auto it = lista.begin(); it != lista.end() && !esta; it++)
+	{
+		if (it->fila == es.fila && it->columna == es.columna)
+			esta=true;
+	}
+	return esta;	
+}
+
+estado ComportamientoJugador::cercanoLista(list<estado> lista, int fila, int columna){
+	int diferenciaMinima = 2e6;
+	for (auto it= lista.begin(); it!=lista.end(); it++){
+		if (!estaEnLista(listBateriasEncontradas, *it)){
+			int difActual= max(abs(fila - it->fila), abs(columna - it->columna));
+
+			if (difActual<diferenciaMinima){
+				bateria = *it;
+				diferenciaMinima=difActual;
+			}
+		}
+	}
+	return bateria;
+}
+
+void ComportamientoJugador::switchAccion (){
+	switch (ultimaAccion)
+		{
+		case actFORWARD:
+			actualizaSegunOrientacion(fil,col,orient);
+			
+			break;
+		
+		case actSEMITURN_R:
+			orient = (orient+1)%8;
+			break;
+		case actTURN_R:
+			orient = (orient+2)%8;
+			break;
+		
+		case actTURN_L:
+			orient=(orient+6)%8;
+			break;
+	
+		case actSEMITURN_L:
+			orient = (orient+7)%8;
+			break;
+		default:
+			break;
+	}
+
+}
+
+void actualizaSegunOrientacion(int &fil, int &col, int &orient){
+	switch (orient){
+		case 0:
+			fil--;
+			break;
+		case 1:
+			fil--;
+			col++;
+			break;
+		case 2:
+			col++;
+			break;
+		case 3:
+			fil++;
+			col++;
+			break;
+		case 4:
+			fil++;
+			break;
+		case 5:
+			fil++;
+			col--;
+			break;
+		case 6:
+			col--;
+			break;
+		case 7:
+			fil--;
+			col--;
+			break;
+	}	
+}
+
+bool ComportamientoJugador::pathFinding_BuscaObjetivos(const estado &origen, const list<estado> &destinos, list<Action> &plan, std::vector< std::vector< unsigned char> > &mapaR, Sensores sensores){
+	bool salida=false;
+	estado objetivoCercano = cercanoLista(destinos, actual.fila, actual.columna);
+
+	if (sensores.superficie[2] != '_'){
+		int f=fil, c=col; 
+		actualizaSegunOrientacion(f,c,orient);
+		unsigned char ant = mapaAux[f][c];
+		mapaAux[f][c]='M';
+		hayPlan = pathFinding_AlgoritmoA(origen, objetivoCercano, plan,mapaAux);
+		mapaAux[f][c] = ant;
+	} else
+		hayPlan = pathFinding_AlgoritmoA(origen, objetivoCercano, plan,mapaR);
+	
+	return hayPlan;
+}
+
+void ComportamientoJugador::iniciaMapaAux(){
+	vector<unsigned char> aux_Potencial(mapaResultado.size(), '?');
+	for (size_t i = 0; i < mapaResultado[0].size(); i++)
+	{
+		mapaAux.push_back(aux_Potencial);
+	} 
+}
+
 int ComportamientoJugador::interact(Action accion, int valor)
 {
 	return false;
 }
+
+
